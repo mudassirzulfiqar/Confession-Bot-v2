@@ -1,3 +1,5 @@
+// ConfessionBot.kt
+import com.sun.net.httpserver.HttpServer
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.channel.ChannelType
@@ -5,6 +7,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
+import java.net.InetSocketAddress
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -12,9 +15,8 @@ val token = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN environment variable 
 
 class ConfessionBot : ListenerAdapter() {
 
-    private val configuredChannels =
-        mutableMapOf<Long, TextChannel>() // Guild ID -> Confession Channel
-    private val logs = mutableListOf<String>() // Log of messages with timestamps and sender details
+    private val configuredChannels = mutableMapOf<Long, TextChannel>()
+    private val logs = mutableListOf<String>()
 
     companion object {
         const val HI_RESPONSE = """
@@ -36,7 +38,7 @@ class ConfessionBot : ListenerAdapter() {
         const val INVALID_COMMAND_RESPONSE = """
             Invalid command. Please use one of the following patterns:
             - `!hi`
-            - `!setconfession`
+            - `!configure`
             - `!c <your confession>` (in DM)
         """
         const val GENERIC_ERROR_RESPONSE =
@@ -44,63 +46,28 @@ class ConfessionBot : ListenerAdapter() {
     }
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
-        // Ignore bot messages
         if (event.author.isBot) return
 
         val message = event.message.contentRaw.trim()
-        val channel = event.channel
+        val channel = event.channel as TextChannel
         val timestamp =
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 
-        // Log the message with timestamp and sender details
         logs.add("[$timestamp] ${event.author.asTag}: $message")
         println(logs.last())
 
         try {
             when {
                 message.equals("!hi", ignoreCase = true) -> {
-                    channel.sendMessage(HI_RESPONSE.trimIndent()).queue()
+                    Commands.handleHiCommand(channel)
                 }
 
-                message.startsWith("!setconfession") -> {
-                    if (event.isFromGuild) { // Check if the message is from a guild
-                        val guildId = event.guild.idLong
-                        configuredChannels[guildId] = channel as TextChannel
-                        channel.sendMessage(SET_CONFESSION_CHANNEL_RESPONSE).queue()
-                    } else {
-                        channel.sendMessage(SET_CONFESSION_CHANNEL_ERROR).queue()
-                    }
+                message.startsWith("!configure") -> {
+                    Commands.handleSetConfessionCommand(event, channel, configuredChannels)
                 }
 
                 message.startsWith("!c") && event.isFromType(ChannelType.PRIVATE) -> {
-                    val confession = message.removePrefix("!c").trim()
-                    if (confession.isEmpty()) {
-                        channel.sendMessage(EMPTY_CONFESSION_ERROR).queue()
-                        return
-                    }
-
-                    val guildId =
-                        configuredChannels.keys.firstOrNull() // Get any configured guild for simplicity
-                    if (guildId == null) {
-                        channel.sendMessage(NO_CONFESSION_CHANNEL_CONFIGURED).queue()
-                        return
-                    }
-
-                    val confessionChannel = configuredChannels[guildId]
-                    if (confessionChannel == null) {
-                        channel.sendMessage(NO_CONFESSION_CHANNEL_FOR_SERVER).queue()
-                        return
-                    }
-
-                    // Send confession anonymously
-                    val embed = EmbedBuilder()
-                        .setTitle("Anonymous Confession")
-                        .setDescription(confession)
-                        .setColor(0xFF5733) // Optional: Set a color for the embed
-                        .build()
-
-                    confessionChannel.sendMessageEmbeds(embed).queue()
-                    channel.sendMessage(CONFESSION_SENT_RESPONSE).queue()
+                    Commands.handleConfessionCommand(event, channel, configuredChannels)
                 }
 
                 message.startsWith("!c") && event.isFromGuild -> {
@@ -108,7 +75,7 @@ class ConfessionBot : ListenerAdapter() {
                 }
 
                 else -> {
-                    channel.sendMessage(INVALID_COMMAND_RESPONSE.trimIndent()).queue()
+                    Commands.handleInvalidCommand(channel)
                 }
             }
         } catch (e: Exception) {
@@ -132,6 +99,17 @@ fun main() {
             .build()
 
         println("Bot is running...")
+
+        // Start a simple HTTP health check server
+        val server = HttpServer.create(InetSocketAddress(8080), 0)
+        server.createContext("/") { exchange ->
+            val response = "Service is running!"
+            exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
+            exchange.responseBody.use { it.write(response.toByteArray()) }
+        }
+        server.start()
+        println("Health check server running on port 8080")
+
     } catch (e: Exception) {
         println("Failed to start the bot:")
         e.printStackTrace()

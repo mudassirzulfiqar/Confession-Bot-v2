@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=builder /app/build/libs/confession-bot-1.0.0.jar app.jar
 
 # Expose the port (optional, only if needed)
-# EXPOSE 8080
+EXPOSE 8080
 
 # Command to run the application
 CMD ["java", "-jar", "app.jar"]
