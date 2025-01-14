@@ -8,7 +8,7 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-//val token = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN environment variable not set")
+val token = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN environment variable not set")
 
 class ConfessionBot : ListenerAdapter() {
 
@@ -122,7 +122,7 @@ class ConfessionBot : ListenerAdapter() {
 fun main() {
     try {
         JDABuilder.createDefault(
-            "token",
+            token,
             GatewayIntent.DIRECT_MESSAGES,
             GatewayIntent.GUILD_MESSAGES,
             GatewayIntent.GUILD_MEMBERS,
