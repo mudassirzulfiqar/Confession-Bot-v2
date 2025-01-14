@@ -1,20 +1,30 @@
-# Use an official OpenJDK runtime as a parent image
-FROM openjdk:17-jdk-slim
+# Stage 1: Build the application
+FROM gradle:7.6-jdk17 AS builder
 
-# Set the working directory in the container
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the fat JAR file into the container
-COPY build/libs/confession-bot-1.0.0.jar app.jar
+# Copy Gradle build files
+COPY build.gradle.kts settings.gradle.kts gradlew ./
+COPY gradle gradle
 
-# Copy the .env file to the container (optional, if needed)
-COPY .env .env
+# Copy the source code
+COPY src src
 
-# Expose ports (optional, only if your app needs it, e.g., for HTTP endpoints)
+# Build the application
+RUN ./gradlew shadowJar --no-daemon
+
+# Stage 2: Run the application
+FROM openjdk:17-jdk-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the fat JAR from the builder stage
+COPY --from=builder /app/build/libs/confession-bot-1.0.0.jar app.jar
+
+# Expose the port (optional, only if needed)
 # EXPOSE 8080
 
-# Set the environment variable for the bot token (useful for CI/CD environments)
-# ENV BOT_TOKEN=your-token-placeholder
-
-# Command to run the JAR file
+# Command to run the application
 CMD ["java", "-jar", "app.jar"]
