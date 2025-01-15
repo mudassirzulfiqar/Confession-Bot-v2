@@ -1,17 +1,15 @@
 // ConfessionBot.kt
-import com.sun.net.httpserver.HttpServer
-import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
-import java.net.InetSocketAddress
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 val token = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN environment variable not set")
+//val token = "sds"
 
 class ConfessionBot : ListenerAdapter() {
 
@@ -99,16 +97,6 @@ fun main() {
             .build()
 
         println("Bot is running...")
-
-        // Start a simple HTTP health check server
-        val server = HttpServer.create(InetSocketAddress(8080), 0)
-        server.createContext("/") { exchange ->
-            val response = "Service is running!"
-            exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
-            exchange.responseBody.use { it.write(response.toByteArray()) }
-        }
-        server.start()
-        println("Health check server running on port 8080")
 
     } catch (e: Exception) {
         println("Failed to start the bot:")
