@@ -2,29 +2,34 @@
 import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.channel.ChannelType
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.requests.GatewayIntent
+import repository.LogService
+import repository.RemoteService
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 
-class ConfessionBot : ListenerAdapter() {
+class ConfessionBot(
+    private val serverCommandHandler: ServerCommandHandler, private val logService: LogService
+) : ListenerAdapter() {
 
     private val configuredChannels = mutableMapOf<Long, TextChannel>()
     private val logs = mutableListOf<String>()
 
     companion object {
         const val HI_RESPONSE = """
-            Hello! It's **CONFESSION** Bot 🤫
-
+            🤫
             **Send any message to me starting with the following pattern:**
             - `!c <Write your first confession>` (e.g., `!c Issay sub pta ha`)
         """
         const val SET_CONFESSION_CHANNEL_RESPONSE =
             "This channel has been set as the confession channel."
         const val SET_CONFESSION_CHANNEL_ERROR = "This command can only be used in a server."
+        const val SOMETHING_WENT_WRONG = "Something went wrong. Please try again later."
         const val NO_CONFESSION_CHANNEL_CONFIGURED =
             "No confession channel has been configured yet."
         const val NO_CONFESSION_CHANNEL_FOR_SERVER =
@@ -43,42 +48,90 @@ class ConfessionBot : ListenerAdapter() {
     }
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
-        if (event.author.isBot) return
+        if (event.author.isBot) return // Ignore messages from bots
 
         val message = event.message.contentRaw.trim()
-        val channel = event.channel as TextChannel
         val timestamp =
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        val logEntry = "[$timestamp] ${event.author.asTag}: $message"
 
-        logs.add("[$timestamp] ${event.author.asTag}: $message")
-        println(logs.last())
+        // Add log entry and record it
+        logs.add(logEntry)
+        println(logEntry)
+        logService.recordLog(logEntry, "INFO") { success, error ->
+            if (!success) println("Failed to record log: $error")
+        }
 
+        // Process the message based on channel type
         try {
-            when {
-                message.equals("!hi", ignoreCase = true) -> {
-                    Commands.handleHiCommand(channel)
-                }
+            when (event.channel) {
+                is TextChannel -> processServerMessage(event, message, event.channel as TextChannel)
+                is PrivateChannel -> processPrivateMessage(
+                    event,
+                    message,
+                    event.channel as PrivateChannel
+                )
 
-                message.startsWith("!configure") -> {
-                    Commands.handleSetConfessionCommand(event, channel, configuredChannels)
-                }
-
-                message.startsWith("!c") && event.isFromType(ChannelType.PRIVATE) -> {
-                    Commands.handleConfessionCommand(event, channel, configuredChannels)
-                }
-
-                message.startsWith("!c") && event.isFromGuild -> {
-                    channel.sendMessage(SEND_CONFESSIONS_VIA_DM).queue()
-                }
-
-                else -> {
-                    Commands.handleInvalidCommand(channel)
-                }
+                else -> println("Unsupported channel type.")
             }
         } catch (e: Exception) {
-            println("Error processing message: $message")
-            e.printStackTrace()
-            channel.sendMessage(GENERIC_ERROR_RESPONSE).queue()
+            handleProcessingError(e, event)
+        }
+    }
+
+    // Method to process server (guild) messages
+    private fun processServerMessage(
+        event: MessageReceivedEvent,
+        message: String,
+        channel: TextChannel
+    ) {
+        when {
+            message.equals("!hi", ignoreCase = true) -> {
+                serverCommandHandler.handleHiCommand(channel)
+            }
+
+            message.startsWith("!configure") -> {
+                serverCommandHandler.handleSetConfessionCommand(event, channel, configuredChannels)
+            }
+
+            message.startsWith("!c") -> {
+                channel.sendMessage(SEND_CONFESSIONS_VIA_DM).queue()
+            }
+
+            else -> {
+                serverCommandHandler.handleInvalidCommand(channel)
+            }
+        }
+    }
+
+    // Method to process private (DM) messages
+    private fun processPrivateMessage(
+        event: MessageReceivedEvent,
+        message: String,
+        channel: PrivateChannel
+    ) {
+        when {
+            message.startsWith("!c") -> {
+                serverCommandHandler.handleConfessionCommand(event, channel, configuredChannels)
+            }
+
+            else -> {
+                channel.sendMessage(INVALID_COMMAND_RESPONSE).queue()
+            }
+        }
+    }
+
+    // Method to handle errors
+    private fun handleProcessingError(exception: Exception, event: MessageReceivedEvent) {
+        val channel = event.channel
+        val errorMessage = "Error processing message: ${event.message.contentRaw.trim()}"
+        println(errorMessage)
+        exception.printStackTrace()
+
+        when (channel) {
+            is TextChannel -> channel.sendMessage(GENERIC_ERROR_RESPONSE).queue()
+            is PrivateChannel -> channel.sendMessage(GENERIC_ERROR_RESPONSE).queue()
+            else -> println("Error occurred in unsupported channel type.")
         }
     }
 }
@@ -89,6 +142,15 @@ fun main() {
     val botToken = dotenv["BOT_TOKEN"] ?: "default_value"
     println("BOT_TOKEN: $botToken")
 
+    val service = RemoteService(
+        dotenv["DATABASE_SERVER_URL"] ?: "default_value", dotenv["API_KEY"] ?: "default_value"
+    )
+    val logService = LogService(
+        dotenv["DATABASE_SERVER_URL"] ?: "default_value", dotenv["API_KEY"] ?: "default_value"
+    )
+
+    val serverCommandHandler = ServerCommandHandler(service)
+
     try {
         JDABuilder.createDefault(
             botToken,
@@ -96,9 +158,7 @@ fun main() {
             GatewayIntent.GUILD_MESSAGES,
             GatewayIntent.GUILD_MEMBERS,
             GatewayIntent.MESSAGE_CONTENT
-        )
-            .addEventListeners(ConfessionBot())
-            .build()
+        ).addEventListeners(ConfessionBot(serverCommandHandler, logService)).build()
 
         println("Bot is running...")
 

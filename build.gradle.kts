@@ -11,6 +11,8 @@ repositories {
 dependencies {
     implementation("net.dv8tion:JDA:5.0.0") // JDA dependency
     implementation("io.github.cdimascio:dotenv-kotlin:6.4.1") // dotenv for environment variables
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 application {
