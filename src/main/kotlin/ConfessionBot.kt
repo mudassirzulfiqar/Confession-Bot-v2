@@ -1,4 +1,5 @@
 // ConfessionBot.kt
+import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
@@ -8,8 +9,6 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-val token = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN environment variable not set")
-//val token = "sds"
 
 class ConfessionBot : ListenerAdapter() {
 
@@ -85,9 +84,14 @@ class ConfessionBot : ListenerAdapter() {
 }
 
 fun main() {
+
+    val dotenv = Dotenv.load()
+    val botToken = dotenv["BOT_TOKEN"] ?: "default_value"
+    println("BOT_TOKEN: $botToken")
+
     try {
         JDABuilder.createDefault(
-            token,
+            botToken,
             GatewayIntent.DIRECT_MESSAGES,
             GatewayIntent.GUILD_MESSAGES,
             GatewayIntent.GUILD_MEMBERS,
