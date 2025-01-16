@@ -1,4 +1,5 @@
 // ConfessionBot.kt
+import ConfessionBot.Companion.HI_RESPONSE
 import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.channel.ChannelType
@@ -51,16 +52,6 @@ class ConfessionBot(
         if (event.author.isBot) return // Ignore messages from bots
 
         val message = event.message.contentRaw.trim()
-        val timestamp =
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        val logEntry = "[$timestamp] ${event.author.asTag}: $message"
-
-        // Add log entry and record it
-        logs.add(logEntry)
-        println(logEntry)
-        logService.recordLog(logEntry, "INFO") { success, error ->
-            if (!success) println("Failed to record log: $error")
-        }
 
         // Process the message based on channel type
         try {
@@ -99,7 +90,7 @@ class ConfessionBot(
             }
 
             else -> {
-                serverCommandHandler.handleInvalidCommand(channel)
+
             }
         }
     }
@@ -113,6 +104,16 @@ class ConfessionBot(
         when {
             message.startsWith("!c") -> {
                 serverCommandHandler.handleConfessionCommand(event, channel, configuredChannels)
+                val timestamp =
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                val logEntry = "[$timestamp] ${event.author.asTag}: $message"
+
+                // Add log entry and record it
+                logs.add(logEntry)
+                println(logEntry)
+                logService.recordLog(logEntry, "INFO") { success, error ->
+                    if (!success) println("Failed to record log: $error")
+                }
             }
 
             else -> {
@@ -137,22 +138,17 @@ class ConfessionBot(
 }
 
 fun main() {
-
     val dotenv = Dotenv.load()
     val botToken = dotenv["BOT_TOKEN"] ?: "default_value"
-    println("BOT_TOKEN: $botToken")
+    val databaseServerUrl = dotenv["DATABASE_SERVER_URL"] ?: "default_value"
+    val apiKey = dotenv["API_KEY"] ?: "default_value"
 
-    val service = RemoteService(
-        dotenv["DATABASE_SERVER_URL"] ?: "default_value", dotenv["API_KEY"] ?: "default_value"
-    )
-    val logService = LogService(
-        dotenv["DATABASE_SERVER_URL"] ?: "default_value", dotenv["API_KEY"] ?: "default_value"
-    )
-
+    val service = RemoteService(databaseServerUrl, apiKey)
+    val logService = LogService(databaseServerUrl, apiKey)
     val serverCommandHandler = ServerCommandHandler(service)
 
     try {
-        JDABuilder.createDefault(
+        val jda = JDABuilder.createDefault(
             botToken,
             GatewayIntent.DIRECT_MESSAGES,
             GatewayIntent.GUILD_MESSAGES,
@@ -161,7 +157,6 @@ fun main() {
         ).addEventListeners(ConfessionBot(serverCommandHandler, logService)).build()
 
         println("Bot is running...")
-
     } catch (e: Exception) {
         println("Failed to start the bot:")
         e.printStackTrace()
