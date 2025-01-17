@@ -15,7 +15,8 @@ import java.time.format.DateTimeFormatter
 
 
 class ConfessionBot(
-    private val serverCommandHandler: ServerCommandHandler, private val logService: LogService
+    private val serverCommandHandler: ServerCommandHandler,
+    private val logService: LogService
 ) : ListenerAdapter() {
 
     private val configuredChannels = mutableMapOf<Long, TextChannel>()

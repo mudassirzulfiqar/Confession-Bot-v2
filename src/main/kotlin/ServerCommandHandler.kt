@@ -96,4 +96,5 @@ class ServerCommandHandler(val service: RemoteService) {
     fun handleInvalidCommand(channel: TextChannel) {
         channel.sendMessage(ConfessionBot.INVALID_COMMAND_RESPONSE.trimIndent()).queue()
     }
+
 }
