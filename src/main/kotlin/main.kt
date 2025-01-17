@@ -25,7 +25,6 @@ fun main() {
                     GatewayIntent.GUILD_MEMBERS,
                     GatewayIntent.MESSAGE_CONTENT
                 ).addEventListeners(ConfessionBot(serverCommandHandler, logService)).build()
-
                 println("Bot is running...")
             } catch (e: Exception) {
                 println("Failed to start the bot:")
