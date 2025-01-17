@@ -1,18 +1,11 @@
 // ConfessionBot.kt
-import ConfessionBot.Companion.HI_RESPONSE
-import io.github.cdimascio.dotenv.Dotenv
-import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
-import net.dv8tion.jda.api.requests.GatewayIntent
 import repository.LogService
-import repository.RemoteService
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
 
 class ConfessionBot(
     private val serverCommandHandler: ServerCommandHandler,
@@ -28,25 +21,21 @@ class ConfessionBot(
             **Send any message to me starting with the following pattern:**
             - `!c <Write your first confession>` (e.g., `!c Issay sub pta ha`)
         """
-        const val SET_CONFESSION_CHANNEL_RESPONSE =
-            "This channel has been set as the confession channel."
+        const val SET_CONFESSION_CHANNEL_RESPONSE = "This channel has been set as the confession channel."
         const val SET_CONFESSION_CHANNEL_ERROR = "This command can only be used in a server."
         const val SOMETHING_WENT_WRONG = "Something went wrong. Please try again later."
-        const val NO_CONFESSION_CHANNEL_CONFIGURED =
-            "No confession channel has been configured yet."
-        const val NO_CONFESSION_CHANNEL_FOR_SERVER =
-            "No confession channel has been configured for this server yet."
+        const val NO_CONFESSION_CHANNEL_CONFIGURED = "No confession channel has been configured yet."
+        const val NO_CONFESSION_CHANNEL_FOR_SERVER = "No confession channel has been configured for this server yet."
         const val EMPTY_CONFESSION_ERROR = "Your confession cannot be empty."
         const val CONFESSION_SENT_RESPONSE = "Your confession has been sent anonymously!"
         const val SEND_CONFESSIONS_VIA_DM = "Please send confessions as a DM to the bot."
+        const val GENERIC_ERROR_RESPONSE = "An error occurred while processing your request. Please try again later."
         const val INVALID_COMMAND_RESPONSE = """
             Invalid command. Please use one of the following patterns:
             - `!hi`
             - `!configure`
             - `!c <your confession>` (in DM)
         """
-        const val GENERIC_ERROR_RESPONSE =
-            "An error occurred while processing your request. Please try again later."
     }
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
@@ -136,40 +125,4 @@ class ConfessionBot(
             else -> println("Error occurred in unsupported channel type.")
         }
     }
-}
-
-fun main() {
-    val dotenv = Dotenv.load()
-    val botToken = dotenv["BOT_TOKEN"] ?: "default_value"
-    val databaseServerUrl = dotenv["DATABASE_SERVER_URL"] ?: "default_value"
-    val apiKey = dotenv["API_KEY"] ?: "default_value"
-
-    val service = RemoteService(databaseServerUrl, apiKey)
-    val logService = LogService(databaseServerUrl, apiKey)
-    val serverCommandHandler = ServerCommandHandler(service)
-
-    service.getLatestConfiguredServerId() { serverId, error ->
-        if (serverId != null) {
-            println("Latest server ID: $serverId")
-            try {
-                val jda = JDABuilder.createDefault(
-                    botToken,
-                    GatewayIntent.DIRECT_MESSAGES,
-                    GatewayIntent.GUILD_MESSAGES,
-                    GatewayIntent.GUILD_MEMBERS,
-                    GatewayIntent.MESSAGE_CONTENT
-                ).addEventListeners(ConfessionBot(serverCommandHandler, logService)).build()
-
-                println("Bot is running...")
-            } catch (e: Exception) {
-                println("Failed to start the bot:")
-                e.printStackTrace()
-            }
-
-        } else {
-            println("Failed to fetch server ID: $error")
-        }
-    }
-
-
 }
