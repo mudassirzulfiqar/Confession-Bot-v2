@@ -14,17 +14,19 @@ fun main() {
     val logService = LogService(databaseServerUrl, apiKey)
     val serverCommandHandler = ServerCommandHandler(service)
 
+    val jdaBuilder = JDABuilder.createDefault(
+        botToken,
+        GatewayIntent.DIRECT_MESSAGES,
+        GatewayIntent.GUILD_MESSAGES,
+        GatewayIntent.GUILD_MEMBERS,
+        GatewayIntent.MESSAGE_CONTENT
+    ).addEventListeners(ConfessionBot(serverCommandHandler, logService))
+
     service.getLatestConfiguredServerId { serverId, error ->
         if (serverId != null) {
             println("Latest server ID: $serverId")
             try {
-                val jda = JDABuilder.createDefault(
-                    botToken,
-                    GatewayIntent.DIRECT_MESSAGES,
-                    GatewayIntent.GUILD_MESSAGES,
-                    GatewayIntent.GUILD_MEMBERS,
-                    GatewayIntent.MESSAGE_CONTENT
-                ).addEventListeners(ConfessionBot(serverCommandHandler, logService)).build()
+                val jda = jdaBuilder.build()
                 println("Bot is running...")
             } catch (e: Exception) {
                 println("Failed to start the bot:")

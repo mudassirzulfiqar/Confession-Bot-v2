@@ -1,5 +1,6 @@
 // Commands.kt
 import net.dv8tion.jda.api.EmbedBuilder
+import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -7,11 +8,6 @@ import repository.RemoteService
 
 class ServerCommandHandler(private val service: RemoteService) {
 
-    fun getChannelById(channelId: String) {
-        // Fetch the channel by ID
-        // Implement this method
-
-    }
 
     fun handleHiCommand(channel: TextChannel) {
         channel.sendMessage(ConfessionBot.HI_RESPONSE.trimIndent()).queue()
@@ -69,7 +65,33 @@ class ServerCommandHandler(private val service: RemoteService) {
     }
 
     fun handleInvalidCommand(channel: TextChannel) {
-        channel.sendMessage(ConfessionBot.INVALID_COMMAND_RESPONSE.trimIndent()).queue()
+        channel.sendMessage(ConfessionBot.INVALID_COMMAND_RESPONSE).queue()
+    }
+
+    fun getChannelFromId(event: MessageReceivedEvent, id: String): TextChannel? {
+        val guildChannel = event.jda.getTextChannelById(id)
+        return guildChannel
+    }
+
+    fun handleSetChannelCommand(
+        event: MessageReceivedEvent,
+        channel: PrivateChannel,
+        configuredChannels: MutableMap<Long, TextChannel>
+    ) {
+        val guildId = event.message.contentRaw.removePrefix("!channel").trim().toLongOrNull()
+        if (guildId == null) {
+            channel.sendMessage(ConfessionBot.INVALID_GUILD_ID).queue()
+            return
+        }
+
+        val guildChannel = event.jda.getTextChannelById(guildId)
+        if (guildChannel == null) {
+            channel.sendMessage(ConfessionBot.INVALID_CHANNEL_ID).queue()
+            return
+        }
+
+        configuredChannels[guildId] = guildChannel
+        channel.sendMessage(ConfessionBot.SET_CONFESSION_CHANNEL_RESPONSE).queue()
     }
 
 }
