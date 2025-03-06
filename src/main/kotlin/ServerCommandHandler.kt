@@ -1,15 +1,11 @@
 // Commands.kt
 import net.dv8tion.jda.api.EmbedBuilder
-import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import repository.RemoteService
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
-import net.dv8tion.jda.api.interactions.commands.build.Commands
-import net.dv8tion.jda.api.interactions.commands.build.CommandData
-import net.dv8tion.jda.api.interactions.commands.OptionType
 import repository.LogService
 
 class ServerCommandHandler(
@@ -118,5 +114,14 @@ class ServerCommandHandler(
         val guildId = event.guild!!.idLong
         configuredChannels[guildId] = channel
         event.reply("Confession channel set to ${channel.name}").setEphemeral(true).queue()
+    }
+
+    fun handleRemoveConfessionChannelCommand(
+        event: SlashCommandInteractionEvent,
+        configuredChannels: MutableMap<Long, TextChannel>
+    ) {
+        val guildId = event.guild!!.idLong
+        configuredChannels.remove(guildId)
+        event.reply("Confession channel removed.").setEphemeral(true).queue()
     }
 }

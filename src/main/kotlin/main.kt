@@ -16,13 +16,14 @@ fun main() {
     val logService = LogService(databaseServerUrl, apiKey)
     val serverCommandHandler = ServerCommandHandler(logService, service)
 
+    val confessionBot = ConfessionBot(serverCommandHandler, logService)
     val jdaBuilder = JDABuilder.createDefault(
         botToken,
         GatewayIntent.DIRECT_MESSAGES,
         GatewayIntent.GUILD_MESSAGES,
         GatewayIntent.GUILD_MEMBERS,
         GatewayIntent.MESSAGE_CONTENT
-    ).addEventListeners(ConfessionBot(serverCommandHandler, logService))
+    ).addEventListeners(confessionBot)
 
     service.getLatestConfiguredServerId { serverId, error ->
         if (serverId != null) {
@@ -32,20 +33,7 @@ fun main() {
                 jda.awaitReady()
                 println("Bot is running...")
 
-                // Register slash commands
-                val commands = listOf(
-                    Commands.slash("confess", "Send a confession anonymously")
-                        .addOption(OptionType.STRING, "message", "The confession message", true),
-                    Commands.slash("configure", "Configure the confession channel")
-                        .addOption(
-                            OptionType.CHANNEL,
-                            "channel",
-                            "The channel to set as confession channel",
-                            true
-                        )
-                )
-
-                jda.updateCommands().addCommands(commands).queue()
+                jda.updateCommands().addCommands(confessionBot.getCommandData()).queue()
             } catch (e: Exception) {
                 println("Failed to start the bot:")
                 e.printStackTrace()

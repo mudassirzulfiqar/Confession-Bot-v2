@@ -46,6 +46,8 @@ class ConfessionBot(
         """
         const val INVALID_GUILD_ID = "Invalid guild ID."
         const val INVALID_CHANNEL_ID = "Invalid channel ID."
+        const val CONFESSION_CHANNEL_REMOVED = "The confession channel has been removed."
+        const val NO_CONFESSION_CHANNEL_TO_REMOVE = "No confession channel is configured to remove."
     }
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
@@ -110,6 +112,10 @@ class ConfessionBot(
                 }
             }
 
+            "remove" -> {
+                serverCommandHandler.handleRemoveConfessionChannelCommand(event, configuredChannels)
+            }
+
             else -> {
                 event.reply(INVALID_COMMAND_RESPONSE).setEphemeral(true).queue()
             }
@@ -126,7 +132,8 @@ class ConfessionBot(
                     "channel",
                     "The channel to set as confession channel",
                     true
-                )
+                ),
+            Commands.slash("remove", "Remove the configured confession channel")
         )
     }
 
