@@ -99,7 +99,6 @@ class ServerCommandHandler(
     }
 
     fun handleConfessionCommand(
-        event: SlashCommandInteractionEvent,
         channel: TextChannel,
         confession: String
     ) {

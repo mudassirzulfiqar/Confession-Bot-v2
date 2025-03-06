@@ -83,7 +83,7 @@ class ConfessionBot(
                 } else {
                     val channel = configuredChannels[event.guild?.idLong]
                     if (channel != null) {
-                        serverCommandHandler.handleConfessionCommand(event, channel, confession)
+                        serverCommandHandler.handleConfessionCommand(channel, confession)
                         val timestamp =
                             LocalDateTime.now()
                                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
