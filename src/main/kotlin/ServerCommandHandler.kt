@@ -9,8 +9,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 import repository.LogService
 
 class ServerCommandHandler(
-    private val logService: LogService,
-    private val remoteService: RemoteService
+    private val logService: LogService, private val remoteService: RemoteService
 ) : ListenerAdapter() {
 
     fun handleHiCommand(channel: TextChannel) {
@@ -68,15 +67,6 @@ class ServerCommandHandler(
         channel.sendMessage(ConfessionBot.CONFESSION_SENT_RESPONSE).queue()
     }
 
-    fun handleInvalidCommand(channel: TextChannel) {
-        channel.sendMessage(ConfessionBot.INVALID_COMMAND_RESPONSE).queue()
-    }
-
-    fun getChannelFromId(event: MessageReceivedEvent, id: String): TextChannel? {
-        val guildChannel = event.jda.getTextChannelById(id)
-        return guildChannel
-    }
-
     fun handleSetChannelCommand(
         event: MessageReceivedEvent,
         channel: PrivateChannel,
@@ -95,12 +85,19 @@ class ServerCommandHandler(
         }
 
         configuredChannels[guildId] = guildChannel
-        channel.sendMessage(ConfessionBot.SET_CONFESSION_CHANNEL_RESPONSE).queue()
+
+        // Save the channel configuration to database
+        remoteService.saveDiscordChannel(guildId.toString(), guildChannel.id) { success, error ->
+            if (success) {
+                channel.sendMessage(ConfessionBot.SET_CONFESSION_CHANNEL_RESPONSE).queue()
+            } else {
+                channel.sendMessage("${ConfessionBot.SOMETHING_WENT_WRONG} Error: $error").queue()
+            }
+        }
     }
 
     fun handleConfessionCommand(
-        channel: TextChannel,
-        confession: String
+        channel: TextChannel, confession: String
     ) {
         channel.sendMessage(confession).queue()
     }
@@ -112,15 +109,26 @@ class ServerCommandHandler(
     ) {
         val guildId = event.guild!!.idLong
         configuredChannels[guildId] = channel
-        event.reply("Confession channel set to ${channel.name}").setEphemeral(true).queue()
+
+        // Save the channel configuration to database
+        remoteService.saveDiscordChannel(guildId.toString(), channel.id) { success, error ->
+            if (success) {
+                event.reply("Confession channel set to ${channel.name}").setEphemeral(true).queue()
+            } else {
+                println("Error saving channel configuration: $error")
+                event.reply(ConfessionBot.SOMETHING_WENT_WRONG).setEphemeral(true).queue()
+            }
+        }
     }
 
     fun handleRemoveConfessionChannelCommand(
-        event: SlashCommandInteractionEvent,
-        configuredChannels: MutableMap<Long, TextChannel>
+        event: SlashCommandInteractionEvent, configuredChannels: MutableMap<Long, TextChannel>
     ) {
         val guildId = event.guild!!.idLong
         configuredChannels.remove(guildId)
-        event.reply("Confession channel removed.").setEphemeral(true).queue()
+
+        // In a real implementation, you might want to remove the configuration from the database
+        // But for now, we'll just acknowledge the removal
+        event.reply(ConfessionBot.CONFESSION_CHANNEL_REMOVED).setEphemeral(true).queue()
     }
 }

@@ -12,8 +12,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.commands.OptionType
 
 class ConfessionBot(
-    private val serverCommandHandler: ServerCommandHandler,
-    private val logService: LogService
+    private val serverCommandHandler: ServerCommandHandler, private val logService: LogService
 ) : ListenerAdapter() {
 
     private val configuredChannels = mutableMapOf<Long, TextChannel>()
@@ -50,6 +49,20 @@ class ConfessionBot(
         const val NO_CONFESSION_CHANNEL_TO_REMOVE = "No confession channel is configured to remove."
     }
 
+    /**
+     * Register a configured channel from the database during synchronization
+     */
+    fun registerConfiguredChannel(serverId: Long, channel: TextChannel) {
+        configuredChannels[serverId] = channel
+    }
+
+    /**
+     * Get the current configured channels map
+     */
+    fun getConfiguredChannels(): Map<Long, TextChannel> {
+        return configuredChannels.toMap()
+    }
+
     override fun onMessageReceived(event: MessageReceivedEvent) {
         if (event.author.isBot) return // Ignore messages from bots
 
@@ -60,9 +73,7 @@ class ConfessionBot(
             when (event.channel) {
                 is TextChannel -> processServerMessage(event, message, event.channel as TextChannel)
                 is PrivateChannel -> processPrivateMessage(
-                    event,
-                    message,
-                    event.channel as PrivateChannel
+                    event, message, event.channel as PrivateChannel
                 )
 
                 else -> println("Unsupported channel type.")
@@ -84,9 +95,8 @@ class ConfessionBot(
                     val channel = configuredChannels[event.guild?.idLong]
                     if (channel != null) {
                         serverCommandHandler.handleConfessionCommand(channel, confession)
-                        val timestamp =
-                            LocalDateTime.now()
-                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        val timestamp = LocalDateTime.now()
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
                         val logEntry = "[$timestamp] ${event.user.asTag}: $confession"
 
                         // Add log entry and record it
@@ -105,8 +115,9 @@ class ConfessionBot(
             "configure" -> {
                 val channel = event.getOption("channel")?.asChannel as? TextChannel
                 if (channel != null) {
-                    configuredChannels[event.guild?.idLong!!] = channel
-                    event.reply(SET_CONFESSION_CHANNEL_RESPONSE).setEphemeral(true).queue()
+                    serverCommandHandler.handleSetConfessionCommand(
+                        event, channel, configuredChannels
+                    )
                 } else {
                     event.reply(SET_CONFESSION_CHANNEL_ERROR).setEphemeral(true).queue()
                 }
@@ -126,22 +137,16 @@ class ConfessionBot(
         return listOf(
             Commands.slash("confess", "Send a confession anonymously")
                 .addOption(OptionType.STRING, "message", "The confession message", true),
-            Commands.slash("configure", "Configure the confession channel")
-                .addOption(
-                    OptionType.CHANNEL,
-                    "channel",
-                    "The channel to set as confession channel",
-                    true
-                ),
+            Commands.slash("configure", "Configure the confession channel").addOption(
+                OptionType.CHANNEL, "channel", "The channel to set as confession channel", true
+            ),
             Commands.slash("remove", "Remove the configured confession channel")
         )
     }
 
     // Method to process server (guild) messages
     private fun processServerMessage(
-        event: MessageReceivedEvent,
-        message: String,
-        channel: TextChannel
+        event: MessageReceivedEvent, message: String, channel: TextChannel
     ) {
         when {
             message.equals("!hi", ignoreCase = true) -> {
@@ -164,9 +169,7 @@ class ConfessionBot(
 
     // Method to process private (DM) messages
     private fun processPrivateMessage(
-        event: MessageReceivedEvent,
-        message: String,
-        channel: PrivateChannel
+        event: MessageReceivedEvent, message: String, channel: PrivateChannel
     ) {
         when {
             message.startsWith("!c ") -> {

@@ -71,13 +71,67 @@ class RemoteService(private val SERVER_URL: String, val API_KEY: String) {
         })
     }
 
+    fun getAllConfiguredServers(callback: (List<Pair<String, String>>?, String?) -> Unit) {
+        // Define the Supabase table
+        val tableName = "discord_server"
+        val url = "$SERVER_URL/rest/v1/$tableName"
+
+        // Create the OkHttp client
+        val client = OkHttpClient()
+
+        // Build the GET request
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apiKey", API_KEY)
+            .addHeader("Content-Type", "application/json")
+            .get()
+            .build()
+
+        // Execute the request asynchronously
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+                callback(null, e.message)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (!responseBody.isNullOrEmpty()) {
+                        try {
+                            // Parse the response using Gson
+                            val jsonArray = Gson().fromJson(responseBody, JsonArray::class.java)
+                            val serverList = mutableListOf<Pair<String, String>>()
+                            
+                            for (i in 0 until jsonArray.size()) {
+                                val entry = jsonArray[i].asJsonObject
+                                val serverId = entry.get("server_id").asString
+                                val channelId = entry.get("channel_id").asString
+                                serverList.add(Pair(serverId, channelId))
+                            }
+                            
+                            callback(serverList, null)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            callback(null, "Error parsing response: ${e.message}")
+                        }
+                    } else {
+                        callback(emptyList(), null)
+                    }
+                } else {
+                    callback(null, response.body?.string())
+                }
+            }
+        })
+    }
+
     fun saveDiscordChannel(
         serverId: String,
         channelId: String,
         callback: (Boolean, String?) -> Unit
     ) {
-        // Define the Supabase table
-        val tableName = "discord_channels"
+        // Update to save to discord_server table instead
+        val tableName = "discord_server"
         val url = "$SERVER_URL/rest/v1/$tableName"
 
         val body = createRequestBody(serverId, channelId)

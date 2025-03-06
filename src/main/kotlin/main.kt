@@ -1,7 +1,7 @@
 import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.interactions.commands.OptionType
-import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.requests.GatewayIntent
 import repository.LogService
 import repository.RemoteService
@@ -25,22 +25,51 @@ fun main() {
         GatewayIntent.MESSAGE_CONTENT
     ).addEventListeners(confessionBot)
 
-    service.getLatestConfiguredServerId { serverId, error ->
-        if (serverId != null) {
-            println("Latest server ID: $serverId")
-            try {
-                val jda = jdaBuilder.build()
-                jda.awaitReady()
-                println("Bot is running...")
+    try {
+        val jda = jdaBuilder.build()
+        jda.awaitReady()
+        println("Bot is ready. Syncing channels with database...")
 
-                jda.updateCommands().addCommands(confessionBot.getCommandData()).queue()
-            } catch (e: Exception) {
-                println("Failed to start the bot:")
-                e.printStackTrace()
+        // Synchronize all configured channels with the database
+        syncConfiguredChannels(service, confessionBot, jda)
+        
+        // Register slash commands
+        jda.updateCommands().addCommands(confessionBot.getCommandData()).queue()
+        println("Slash commands registered successfully.")
+        
+    } catch (e: Exception) {
+        println("Failed to start the bot:")
+        e.printStackTrace()
+    }
+}
+
+/**
+ * Synchronizes all configured channels from the Supabase database with the bot's in-memory configuration
+ */
+fun syncConfiguredChannels(service: RemoteService, confessionBot: ConfessionBot, jda: JDA) {
+    service.getAllConfiguredServers { serverList, error ->
+        if (serverList != null) {
+            println("Retrieved ${serverList.size} configured server(s) from database.")
+            
+            for ((serverId, channelId) in serverList) {
+                try {
+                    val serverIdLong = serverId.toLong()
+                    val channelObj = jda.getTextChannelById(channelId)
+                    
+                    if (channelObj != null) {
+                        confessionBot.registerConfiguredChannel(serverIdLong, channelObj)
+                        println("Registered channel #${channelObj.name} for server ${jda.getGuildById(serverIdLong)?.name ?: serverId}")
+                    } else {
+                        println("Warning: Could not find channel with ID $channelId for server $serverId")
+                    }
+                } catch (e: Exception) {
+                    println("Error processing server $serverId: ${e.message}")
+                }
             }
-
+            
+            println("Channel synchronization complete.")
         } else {
-            println("Failed to fetch server ID: $error")
+            println("Failed to retrieve configured servers: $error")
         }
     }
 }
