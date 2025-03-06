@@ -6,6 +6,10 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 import repository.LogService
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.interactions.commands.build.CommandData
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.commands.OptionType
 
 class ConfessionBot(
     private val serverCommandHandler: ServerCommandHandler,
@@ -66,6 +70,66 @@ class ConfessionBot(
         }
     }
 
+    override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
+        if (event.user.isBot) return // Ignore commands from bots
+
+        when (event.name) {
+            "confess" -> {
+                val confession = event.getOption("message")?.asString
+                if (confession.isNullOrBlank()) {
+                    event.reply(EMPTY_CONFESSION_ERROR).setEphemeral(true).queue()
+                } else {
+                    val channel = configuredChannels[event.guild?.idLong]
+                    if (channel != null) {
+                        serverCommandHandler.handleConfessionCommand(event, channel, confession)
+                        val timestamp =
+                            LocalDateTime.now()
+                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        val logEntry = "[$timestamp] ${event.user.asTag}: $confession"
+
+                        // Add log entry and record it
+                        logs.add(logEntry)
+                        println(logEntry)
+                        logService.recordLog(logEntry, "INFO") { success, error ->
+                            if (!success) println("Failed to record log: $error")
+                        }
+                        event.reply(CONFESSION_SENT_RESPONSE).setEphemeral(true).queue()
+                    } else {
+                        event.reply(NO_CONFESSION_CHANNEL_CONFIGURED).setEphemeral(true).queue()
+                    }
+                }
+            }
+
+            "configure" -> {
+                val channel = event.getOption("channel")?.asChannel as? TextChannel
+                if (channel != null) {
+                    configuredChannels[event.guild?.idLong!!] = channel
+                    event.reply(SET_CONFESSION_CHANNEL_RESPONSE).setEphemeral(true).queue()
+                } else {
+                    event.reply(SET_CONFESSION_CHANNEL_ERROR).setEphemeral(true).queue()
+                }
+            }
+
+            else -> {
+                event.reply(INVALID_COMMAND_RESPONSE).setEphemeral(true).queue()
+            }
+        }
+    }
+
+    fun getCommandData(): List<CommandData> {
+        return listOf(
+            Commands.slash("confess", "Send a confession anonymously")
+                .addOption(OptionType.STRING, "message", "The confession message", true),
+            Commands.slash("configure", "Configure the confession channel")
+                .addOption(
+                    OptionType.CHANNEL,
+                    "channel",
+                    "The channel to set as confession channel",
+                    true
+                )
+        )
+    }
+
     // Method to process server (guild) messages
     private fun processServerMessage(
         event: MessageReceivedEvent,
@@ -112,7 +176,7 @@ class ConfessionBot(
                 }
             }
 
-            message.startsWith("!channel ")->{
+            message.startsWith("!channel ") -> {
                 serverCommandHandler.handleSetChannelCommand(event, channel, configuredChannels)
             }
 

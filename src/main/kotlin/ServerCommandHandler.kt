@@ -5,9 +5,17 @@ import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import repository.RemoteService
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.hooks.ListenerAdapter
+import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.interactions.commands.build.CommandData
+import net.dv8tion.jda.api.interactions.commands.OptionType
+import repository.LogService
 
-class ServerCommandHandler(private val service: RemoteService) {
-
+class ServerCommandHandler(
+    private val logService: LogService,
+    private val remoteService: RemoteService
+) : ListenerAdapter() {
 
     fun handleHiCommand(channel: TextChannel) {
         channel.sendMessage(ConfessionBot.HI_RESPONSE.trimIndent()).queue()
@@ -21,7 +29,7 @@ class ServerCommandHandler(private val service: RemoteService) {
         if (event.isFromGuild) {
             val guildId = event.guild.idLong
             configuredChannels[guildId] = channel
-            service.saveDiscordChannel(guildId.toString(), channel.id, { success, error ->
+            remoteService.saveDiscordChannel(guildId.toString(), channel.id, { success, error ->
                 println("Success: $success, Error: $error")
                 if (success) {
                     channel.sendMessage(ConfessionBot.SET_CONFESSION_CHANNEL_RESPONSE).queue()
@@ -94,4 +102,21 @@ class ServerCommandHandler(private val service: RemoteService) {
         channel.sendMessage(ConfessionBot.SET_CONFESSION_CHANNEL_RESPONSE).queue()
     }
 
+    fun handleConfessionCommand(
+        event: SlashCommandInteractionEvent,
+        channel: TextChannel,
+        confession: String
+    ) {
+        channel.sendMessage(confession).queue()
+    }
+
+    fun handleSetConfessionCommand(
+        event: SlashCommandInteractionEvent,
+        channel: TextChannel,
+        configuredChannels: MutableMap<Long, TextChannel>
+    ) {
+        val guildId = event.guild!!.idLong
+        configuredChannels[guildId] = channel
+        event.reply("Confession channel set to ${channel.name}").setEphemeral(true).queue()
+    }
 }

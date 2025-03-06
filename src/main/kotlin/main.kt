@@ -1,5 +1,7 @@
 import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.interactions.commands.OptionType
+import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.requests.GatewayIntent
 import repository.LogService
 import repository.RemoteService
@@ -12,7 +14,7 @@ fun main() {
 
     val service = RemoteService(databaseServerUrl, apiKey)
     val logService = LogService(databaseServerUrl, apiKey)
-    val serverCommandHandler = ServerCommandHandler(service)
+    val serverCommandHandler = ServerCommandHandler(logService, service)
 
     val jdaBuilder = JDABuilder.createDefault(
         botToken,
@@ -27,7 +29,23 @@ fun main() {
             println("Latest server ID: $serverId")
             try {
                 val jda = jdaBuilder.build()
+                jda.awaitReady()
                 println("Bot is running...")
+
+                // Register slash commands
+                val commands = listOf(
+                    Commands.slash("confess", "Send a confession anonymously")
+                        .addOption(OptionType.STRING, "message", "The confession message", true),
+                    Commands.slash("configure", "Configure the confession channel")
+                        .addOption(
+                            OptionType.CHANNEL,
+                            "channel",
+                            "The channel to set as confession channel",
+                            true
+                        )
+                )
+
+                jda.updateCommands().addCommands(commands).queue()
             } catch (e: Exception) {
                 println("Failed to start the bot:")
                 e.printStackTrace()
@@ -37,6 +55,4 @@ fun main() {
             println("Failed to fetch server ID: $error")
         }
     }
-
-
 }
