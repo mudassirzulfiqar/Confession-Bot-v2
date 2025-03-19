@@ -1,7 +1,6 @@
 import io.github.cdimascio.dotenv.Dotenv
-import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
+import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
 import repository.LogService
 import repository.RemoteService
@@ -32,11 +31,11 @@ fun main() {
 
         // Synchronize all configured channels with the database
         syncConfiguredChannels(service, confessionBot, jda)
-        
+
         // Register slash commands
         jda.updateCommands().addCommands(confessionBot.getCommandData()).queue()
         println("Slash commands registered successfully.")
-        
+
     } catch (e: Exception) {
         println("Failed to start the bot:")
         e.printStackTrace()
@@ -50,15 +49,21 @@ fun syncConfiguredChannels(service: RemoteService, confessionBot: ConfessionBot,
     service.getAllConfiguredServers { serverList, error ->
         if (serverList != null) {
             println("Retrieved ${serverList.size} configured server(s) from database.")
-            
+
             for ((serverId, channelId) in serverList) {
                 try {
                     val serverIdLong = serverId.toLong()
                     val channelObj = jda.getTextChannelById(channelId)
-                    
+
                     if (channelObj != null) {
                         confessionBot.registerConfiguredChannel(serverIdLong, channelObj)
-                        println("Registered channel #${channelObj.name} for server ${jda.getGuildById(serverIdLong)?.name ?: serverId}")
+                        println(
+                            "Registered channel #${channelObj.name} for server ${
+                                jda.getGuildById(
+                                    serverIdLong
+                                )?.name ?: serverId
+                            }"
+                        )
                     } else {
                         println("Warning: Could not find channel with ID $channelId for server $serverId")
                     }
@@ -66,7 +71,7 @@ fun syncConfiguredChannels(service: RemoteService, confessionBot: ConfessionBot,
                     println("Error processing server $serverId: ${e.message}")
                 }
             }
-            
+
             println("Channel synchronization complete.")
         } else {
             println("Failed to retrieve configured servers: $error")
