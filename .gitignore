@@ -45,4 +45,5 @@ bin/
 ### Mac OS ###
 .DS_Store
 /.env
-/code_style.md
+/.github/code_style.md
+/.github/code_style.md
