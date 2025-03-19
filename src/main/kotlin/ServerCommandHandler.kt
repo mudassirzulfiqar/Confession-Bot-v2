@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 class ServerCommandHandler(
     private val logService: LogService,
     private val remoteService: RemoteService
-) : ListenerAdapter() {
+) {
 
     fun handleHiCommand(channel: TextChannel) {
         channel.sendMessage(BotConstants.HI_RESPONSE.trimIndent()).queue()

@@ -1,7 +1,12 @@
+import di.AppConfig
+import di.appModule
 import io.github.cdimascio.dotenv.Dotenv
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.core.context.GlobalContext.get
 import repository.LogService
 import repository.RemoteService
 
@@ -11,65 +16,72 @@ import repository.RemoteService
 fun main() {
     try {
         val config = loadConfiguration()
-        val (service, logService) = initializeServices(config)
-        val serverCommandHandler = ServerCommandHandler(logService, service)
-        val confessionBot = ConfessionBot(serverCommandHandler, logService)
+        initializeKoin(config)
 
-        startBot(config.botToken, confessionBot).also { jda ->
-            println("Bot is ready. Syncing channels with database...")
-            syncConfiguredChannels(service, confessionBot, jda)
-            registerSlashCommands(jda, confessionBot)
-        }
+        val confessionBot: ConfessionBot = get().get()
+        startBot(config.botToken, confessionBot)
+            .also { jda -> setupBot(jda, confessionBot) }
     } catch (e: Exception) {
         println("Failed to start the bot:")
         e.printStackTrace()
+    } finally {
+        stopKoin()
+    }
+}
+
+private fun setupBot(jda: JDA, confessionBot: ConfessionBot) {
+    println("Bot is ready. Syncing channels with database...")
+    val service: RemoteService = get().get()
+    syncConfiguredChannels(service, confessionBot, jda)
+    registerSlashCommands(jda, confessionBot)
+}
+
+/**
+ * Initialize Koin dependency injection
+ */
+private fun initializeKoin(config: Configuration) {
+    startKoin {
+        modules(appModule)
+        get().declare(config.databaseServerUrl)
+        get().declare(config.apiKey)
     }
 }
 
 /**
  * Load configuration from environment variables
  */
-private fun loadConfiguration(): Configuration {
-    val dotenv = Dotenv.load()
-    return Configuration(
-        botToken = dotenv["BOT_TOKEN"]
+private data class Configuration(
+    val botToken: String,
+    val databaseServerUrl: String,
+    val apiKey: String
+)
+
+private fun loadConfiguration() = Dotenv.load().let { env ->
+    Configuration(
+        botToken = env["BOT_TOKEN"]
             ?: throw IllegalStateException("BOT_TOKEN not found in environment"),
-        databaseServerUrl = dotenv["DATABASE_SERVER_URL"]
+        databaseServerUrl = env["DATABASE_SERVER_URL"]
             ?: throw IllegalStateException("DATABASE_SERVER_URL not found in environment"),
-        apiKey = dotenv["API_KEY"]
-            ?: throw IllegalStateException("API_KEY not found in environment")
+        apiKey = env["API_KEY"] ?: throw IllegalStateException("API_KEY not found in environment")
     )
 }
 
-/**
- * Initialize repository services
- */
-private fun initializeServices(config: Configuration): Pair<RemoteService, LogService> {
-    val service = RemoteService(config.databaseServerUrl, config.apiKey)
-    val logService = LogService(config.databaseServerUrl, config.apiKey)
-    return service to logService
-}
-
-/**
- * Start the Discord bot with required configurations
- */
-private fun startBot(botToken: String, confessionBot: ConfessionBot): JDA {
-    val jdaBuilder = JDABuilder.createDefault(
+private fun startBot(botToken: String, confessionBot: ConfessionBot): JDA =
+    JDABuilder.createDefault(
         botToken,
         GatewayIntent.DIRECT_MESSAGES,
         GatewayIntent.GUILD_MESSAGES,
         GatewayIntent.GUILD_MEMBERS,
         GatewayIntent.MESSAGE_CONTENT
-    ).addEventListeners(confessionBot)
+    )
+        .addEventListeners(confessionBot)
+        .build()
+        .awaitReady()
 
-    return jdaBuilder.build().awaitReady()
-}
-
-/**
- * Register slash commands with Discord
- */
 private fun registerSlashCommands(jda: JDA, confessionBot: ConfessionBot) {
-    jda.updateCommands().addCommands(confessionBot.getCommandData()).queue()
+    jda.updateCommands()
+        .addCommands(confessionBot.getCommandData())
+        .queue()
     println("Slash commands registered successfully.")
 }
 
@@ -102,18 +114,9 @@ private fun syncConfiguredChannels(service: RemoteService, confessionBot: Confes
                 }
                 println("Channel synchronization complete.")
             },
-            onFailure = { error ->
-                println("Failed to retrieve configured servers: ${error.message}")
+            onFailure = { e ->
+                println("Failed to retrieve configured servers: ${e.message}")
             }
         )
     }
 }
-
-/**
- * Configuration data class for bot initialization
- */
-private data class Configuration(
-    val botToken: String,
-    val databaseServerUrl: String,
-    val apiKey: String
-)
