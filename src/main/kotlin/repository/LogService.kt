@@ -1,51 +1,46 @@
 package repository
 
 import com.google.gson.Gson
+import models.ConfessionLog
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
-class LogService(private val SERVER_URL: String, private val API_KEY: String) {
+/**
+ * Service responsible for handling logging operations with the remote server
+ */
+class LogService(private val serverUrl: String, private val apiKey: String) {
 
-    private fun createRequestBody(logMessage: String, logLevel: String): RequestBody {
-        val payload = mapOf(
-            "message" to logMessage,
-            "level" to logLevel)
-        val json = Gson().toJson(payload)
+    private fun createRequestBody(log: ConfessionLog): RequestBody {
+        val json = Gson().toJson(log)
         return json.toRequestBody("application/json".toMediaType())
     }
 
-    fun recordLog(logMessage: String, logLevel: String, callback: (Boolean, String?) -> Unit) {
-        // Define the Supabase table
+    fun recordLog(log: ConfessionLog, callback: (Result<Unit>) -> Unit) {
         val tableName = "logs"
-        val url = "$SERVER_URL/rest/v1/$tableName"
+        val url = "$serverUrl/rest/v1/$tableName"
+        val body = createRequestBody(log)
 
-        val body = createRequestBody(logMessage, logLevel)
-
-        // Create the OkHttp client
         val client = OkHttpClient()
-
-        // Build the request
         val request = Request.Builder()
             .url(url)
-            .addHeader("apiKey", API_KEY)
+            .addHeader("apiKey", apiKey)
             .addHeader("Content-Type", "application/json")
             .post(body)
             .build()
 
-        // Execute the request asynchronously
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 e.printStackTrace()
-                callback(false, e.message)
+                callback(Result.failure(e))
             }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
-                    callback(true, null)
+                    callback(Result.success(Unit))
                 } else {
-                    callback(false, response.body?.string())
+                    callback(Result.failure(IOException("Failed to record log: ${response.body?.string()}")))
                 }
             }
         })
