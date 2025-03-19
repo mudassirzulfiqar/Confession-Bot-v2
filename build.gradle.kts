@@ -13,16 +13,20 @@ dependencies {
     implementation("io.github.cdimascio:dotenv-kotlin:6.4.1") // dotenv for environment variables
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Add Koin dependencies
+    implementation("io.insert-koin:koin-core:3.4.0")
+    testImplementation("io.insert-koin:koin-test:3.4.0")
 }
 
 application {
     // Set the main class for the application
-    mainClass.set("ConfessionBotKt") // Replace with your main class
+    mainClass.set("MainKt") // Replace with your main class
 }
 
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "ConfessionBotKt" // Ensure the JAR has the correct entry point
+        attributes["Main-Class"] = "MainKt" // Ensure the JAR has the correct entry point
     }
 }
 

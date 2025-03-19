@@ -2,108 +2,95 @@ package repository
 
 import com.google.gson.Gson
 import com.google.gson.JsonArray
+import models.ServerConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
-class RemoteService(private val SERVER_URL: String, val API_KEY: String) {
+/**
+ * Service responsible for managing Discord server configurations with the remote server
+ */
+class RemoteService(private val serverUrl: String, private val apiKey: String) {
 
-    private fun createRequestBody(serverId: String, channelId: String): RequestBody {
-        val payload = mapOf("server_id" to serverId, "channel_id" to channelId)
-        val json = Gson().toJson(payload)
+    private fun createRequestBody(config: ServerConfig): RequestBody {
+        val json = Gson().toJson(config)
         return json.toRequestBody("application/json".toMediaType())
     }
 
+    fun getAllConfiguredServers(callback: (Result<List<ServerConfig>>) -> Unit) {
+        val tableName = "discord_server"
+        val url = "$serverUrl/rest/v1/$tableName"
 
-    fun getLatestConfiguredServerId(callback: (String?, String?) -> Unit) {
-        // Define the Supabase table
-        val tableName = "discord_channels"
-        val url = "$SERVER_URL/rest/v1/$tableName"
-
-        // Add query parameters to sort by the timestamp and fetch the latest entry
-        val queryUrl = "$url?order=created_at.desc&limit=1"
-
-        // Create the OkHttp client
         val client = OkHttpClient()
-
-        // Build the GET request
         val request = Request.Builder()
-            .url(queryUrl)
-            .addHeader("apiKey", API_KEY)
+            .url(url)
+            .addHeader("apiKey", apiKey)
             .addHeader("Content-Type", "application/json")
             .get()
             .build()
 
-        // Execute the request asynchronously
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 e.printStackTrace()
-                callback(null, e.message) // Return error message to the callback
+                callback(Result.failure(e))
             }
 
             override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string()
-                    if (!responseBody.isNullOrEmpty()) {
-                        try {
-                            // Parse the response using Gson
+                try {
+                    if (response.isSuccessful) {
+                        val responseBody = response.body?.string()
+                        if (!responseBody.isNullOrEmpty()) {
                             val jsonArray = Gson().fromJson(responseBody, JsonArray::class.java)
-                            if (jsonArray.size() > 0) {
-                                val latestEntry = jsonArray[0].asJsonObject
-                                val serverId =
-                                    latestEntry.get("server_id").asString // Adjust key based on your table schema
-                                callback(serverId, null)
-                            } else {
-                                callback(null, "No configured server IDs found.")
+                            val serverList = mutableListOf<ServerConfig>()
+
+                            for (i in 0 until jsonArray.size()) {
+                                val entry = jsonArray[i].asJsonObject
+                                val config = ServerConfig(
+                                    serverId = entry.get("server_id").asString,
+                                    channelId = entry.get("channel_id").asString,
+                                    createdAt = entry.get("created_at")?.asString
+                                )
+                                serverList.add(config)
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            callback(null, "Error parsing response.")
+                            callback(Result.success(serverList))
+                        } else {
+                            callback(Result.success(emptyList()))
                         }
                     } else {
-                        callback(null, "Empty response from server.")
+                        callback(Result.failure(IOException("Failed to fetch servers: ${response.body?.string()}")))
                     }
-                } else {
-                    callback(null, response.body?.string()) // Return the error response
+                } catch (e: Exception) {
+                    callback(Result.failure(e))
                 }
             }
         })
     }
 
-    fun saveDiscordChannel(
-        serverId: String,
-        channelId: String,
-        callback: (Boolean, String?) -> Unit
-    ) {
-        // Define the Supabase table
-        val tableName = "discord_channels"
-        val url = "$SERVER_URL/rest/v1/$tableName"
+    fun saveDiscordChannel(config: ServerConfig, callback: (Result<Unit>) -> Unit) {
+        val tableName = "discord_server"
+        val url = "$serverUrl/rest/v1/$tableName"
+        val body = createRequestBody(config)
 
-        val body = createRequestBody(serverId, channelId)
-        // Create the OkHttp client
         val client = OkHttpClient()
-
-        // Build the request
         val request = Request.Builder()
             .url(url)
-            .addHeader("apiKey", API_KEY)
+            .addHeader("apiKey", apiKey)
             .addHeader("Content-Type", "application/json")
             .post(body)
             .build()
 
-        // Execute the request asynchronously
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 e.printStackTrace()
-                callback(false, e.message)
+                callback(Result.failure(e))
             }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
-                    callback(true, null)
+                    callback(Result.success(Unit))
                 } else {
-                    callback(false, response.body?.string())
+                    callback(Result.failure(IOException("Failed to save channel: ${response.body?.string()}")))
                 }
             }
         })
