@@ -1,7 +1,6 @@
 # Confession Bot
 
-A Discord bot written in Kotlin that allows users to send anonymous confessions in configured
-channels.
+A Discord bot written in Kotlin that allows users to send anonymous confessions in configured channels.
 
 ## Features
 
@@ -19,6 +18,7 @@ channels.
 - OkHttp for HTTP requests
 - Gson for JSON handling
 - Supabase for data storage
+- Koin for Dependency Injection
 
 ## Setup
 
@@ -39,7 +39,6 @@ channels.
    ```
 
 Alternatively, you can use Docker:
-
 ```bash
 docker build -t confession-bot .
 docker run -d --env-file .env confession-bot
@@ -48,26 +47,36 @@ docker run -d --env-file .env confession-bot
 ## Commands
 
 ### Text Commands
-
 - `!hi` - Display bot information
 - `!c <message>` - Send an anonymous confession (only works in DMs)
 - `!configure` - Set the current channel as the confession channel
 - `!channel <channel-id>` - Set a specific channel as the confession channel
 
 ### Slash Commands
-
-- `/confess message:<text>` - Send an anonymous confession
+- `/confess message:<text>` - Send a confession anonymously
 - `/configure channel:<channel>` - Configure the confession channel
 - `/remove` - Remove the configured confession channel
 
 ## Project Structure
 
 - `src/main/kotlin/`
-    - `ConfessionBot.kt` - Main bot class handling Discord events
-    - `ServerCommandHandler.kt` - Command handling logic
-    - `constants/` - Bot constants and messages
-    - `models/` - Data classes for logs and configurations
-    - `repository/` - Services for external API interactions
+  - `ConfessionBot.kt` - Main bot class handling Discord events
+  - `ServerCommandHandler.kt` - Command handling logic
+  - `constants/` - Bot constants and messages
+  - `di/` - Dependency injection setup using Koin
+  - `models/` - Data classes for logs and configurations
+  - `repository/` -
+    - `RemoteService.kt` - Handles all remote API interactions
+    - `LogService.kt` - Wrapper for logging operations
+    - `ServerConfigRepository.kt` - Wrapper for server configuration operations
+
+## Refactored Architecture
+
+- **RemoteService**: Primary handler for all remote API interactions.
+- **Repositories**: Wrappers over `RemoteService` to handle specific business logic:
+  - `LogService`: Handles logging operations.
+  - `ServerConfigRepository`: Manages server configuration operations.
+- **Dependency Injection**: Koin is used to manage dependencies and decouple components.
 
 ## Contributing
 
