@@ -78,6 +78,16 @@ docker run -d --env-file .env confession-bot
   - `ServerConfigRepository`: Manages server configuration operations.
 - **Dependency Injection**: Koin is used to manage dependencies and decouple components.
 
+## TODO
+
+- [ ] **Code Refactoring**: Ensure all classes and methods adhere to clean code principles.
+- [ ] **Lint Checks**: Integrate a Kotlin linter (e.g., `ktlint`) to enforce coding standards.
+- [ ] **Unit Tests**: Add unit tests for all modules using JUnit or KotlinTest.
+- [ ] **Integration Tests**: Test the interaction between different modules and external APIs.
+- [ ] **Error Handling**: Review and improve error handling across the application.
+- [ ] **Documentation**: Enhance inline comments and external documentation for better clarity.
+- [ ] **CI/CD Pipeline**: Set up a continuous integration pipeline to automate testing and deployment.
+
 ## Contributing
 
 1. Fork the repository
