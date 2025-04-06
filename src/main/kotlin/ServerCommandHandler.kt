@@ -5,10 +5,9 @@ import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
-import repository.RemoteService
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.hooks.ListenerAdapter
 import repository.LogService
+import repository.RemoteRepository
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -17,7 +16,7 @@ import java.time.format.DateTimeFormatter
  */
 class ServerCommandHandler(
     private val logService: LogService,
-    private val remoteService: RemoteService
+    private val remoteService: RemoteRepository
 ) {
 
     fun handleHiCommand(channel: TextChannel) {
@@ -34,7 +33,7 @@ class ServerCommandHandler(
             configuredChannels[guildId] = channel
 
             val config = ServerConfig(guildId.toString(), channel.id)
-            remoteService.saveDiscordChannel(config) { result ->
+            remoteService.saveServerConfig(config) { result ->
                 result.fold(
                     onSuccess = {
                         channel.sendMessage(BotConstants.SET_CONFESSION_CHANNEL_RESPONSE).queue()
@@ -114,7 +113,7 @@ class ServerCommandHandler(
         configuredChannels[guildId] = guildChannel
 
         val config = ServerConfig(guildId.toString(), guildChannel.id)
-        remoteService.saveDiscordChannel(config) { result ->
+        remoteService.saveServerConfig(config) { result ->
             result.fold(
                 onSuccess = {
                     channel.sendMessage(BotConstants.SET_CONFESSION_CHANNEL_RESPONSE).queue()
@@ -151,7 +150,7 @@ class ServerCommandHandler(
         configuredChannels[guildId] = channel
 
         val config = ServerConfig(guildId.toString(), channel.id)
-        remoteService.saveDiscordChannel(config) { result ->
+        remoteService.saveServerConfig(config) { result ->
             result.fold(
                 onSuccess = {
                     event.reply("Confession channel set to ${channel.name}").setEphemeral(true)

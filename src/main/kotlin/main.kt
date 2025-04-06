@@ -1,14 +1,14 @@
 import di.AppConfig
 import di.appModule
 import io.github.cdimascio.dotenv.Dotenv
+import models.Configuration
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.requests.GatewayIntent
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.context.GlobalContext.get
-import repository.LogService
-import repository.RemoteService
+import repository.RemoteRepository
 
 /**
  * Entry point of the Confession Bot application
@@ -31,7 +31,7 @@ fun main() {
 
 private fun setupBot(jda: JDA, confessionBot: ConfessionBot) {
     println("Bot is ready. Syncing channels with database...")
-    val service: RemoteService = get().get()
+    val service: RemoteRepository = get().get()
     syncConfiguredChannels(service, confessionBot, jda)
     registerSlashCommands(jda, confessionBot)
 }
@@ -50,12 +50,6 @@ private fun initializeKoin(config: Configuration) {
 /**
  * Load configuration from environment variables
  */
-private data class Configuration(
-    val botToken: String,
-    val databaseServerUrl: String,
-    val apiKey: String
-)
-
 private fun loadConfiguration() = Dotenv.load().let { env ->
     Configuration(
         botToken = env["BOT_TOKEN"]
@@ -88,8 +82,12 @@ private fun registerSlashCommands(jda: JDA, confessionBot: ConfessionBot) {
 /**
  * Synchronize configured channels from the database
  */
-private fun syncConfiguredChannels(service: RemoteService, confessionBot: ConfessionBot, jda: JDA) {
-    service.getAllConfiguredServers { result ->
+private fun syncConfiguredChannels(
+    service: RemoteRepository,
+    confessionBot: ConfessionBot,
+    jda: JDA
+) {
+    service.getAllServerConfigs { result ->
         result.fold(
             onSuccess = { serverList ->
                 println("Retrieved ${serverList.size} configured server(s) from database.")
